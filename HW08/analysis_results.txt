@@ -1,0 +1,74 @@
+===========================================
+DIGITAL SIGNATURE ANALYSIS RESULTS
+===========================================
+
+1. SIGNATURE VERIFICATION
+--------------------------
+✅ Signature is Valid
+✅ Document integrity verified (signed ranges: [0-11238], [30184-47765])
+✅ Total document signed
+⚠️  Certificate issuer unknown (not in system trust store)
+
+Signature Details:
+- Signer: Fabrizio d'Amore
+- Signing Time: Dec 08 2025 15:49:26
+- Hash Algorithm: SHA-256
+- Signature Type: ETSI.CAdES.detached
+
+2. CERTIFICATE CHAIN
+---------------------
+Certificate #0 (End-Entity):
+- Subject: CN=Fabrizio d'Amore, serialNumber=TINIT-DMRFRZ60P04H501I
+- Issuer: ArubaPEC EU Qualified Certificates CA G1
+- Serial: 60:7e:88:fc:e0:f3:c5:00:7c:11:11:2d:90:20:46:a5
+- Valid: Nov 5 13:24:18 2024 GMT → Nov 5 13:24:18 2027 GMT
+- Key Usage: Non Repudiation (critical)
+- Algorithm: sha256WithRSAEncryption, RSA 2048-bit
+
+3. X.509 FIELDS ANALYSIS
+-------------------------
+Certificate complies with eIDAS Qualified Certificate standards
+- Version: 3 (X.509v3)
+- Qualified Certificate (QC) statements present
+- Certificate Policies include eIDAS compliant policies
+- Includes PDS (Policy Disclosure Statement) in IT and EN
+
+4. CRL ANALYSIS
+---------------
+CRL Distribution Point: http://crl01.pec.it/va/arubapec-eidas-g1/crl
+✅ CRL successfully retrieved and validated
+
+CRL Update Interval:
+- Last Update: Dec 16 14:48:13 2025 GMT
+- Next Update: Dec 17 14:48:13 2025 GMT
+- Update Interval: 24 hours (1 day)
+
+Certificate Status in CRL: NOT REVOKED ✅
+
+5. OCSP ANALYSIS
+----------------
+OCSP Responder: http://ocsp01.pec.it/va/arubapec-eidas-g1
+✅ OCSP response received successfully
+
+OCSP Response:
+- Response Status: successful (0x0)
+- Certificate Status: GOOD ✅
+- This Update: Dec 16 14:48:13 2025 GMT
+- Next Update: Dec 17 14:48:13 2025 GMT
+- Produced At: Dec 16 15:06:28 2025 GMT
+- Responder: ArubaPEC EU Qualified Certificates OCSP Responder G1
+
+OCSP Update Interval: 24 hours (same as CRL)
+
+6. SECURITY SUMMARY
+-------------------
+✅ Digital signature is mathematically valid
+✅ Document has not been tampered with
+✅ Certificate was valid at signing time (Dec 08 2025)
+✅ Certificate is currently valid (expires Nov 5 2027)
+✅ Certificate not revoked (verified via CRL and OCSP)
+✅ Uses strong cryptographic algorithms (SHA-256, RSA-2048)
+✅ Qualified Certificate under eIDAS Regulation
+✅ Non-repudiation key usage enforced
+
+⚠️  Note: Root CA trust verification requires ArubaPEC root in trust store

@@ -26,3 +26,4 @@ Each homework is organized in its own directory, containing:
 - **HW07**: Secure Dice Game Protocol
 - **HW08**: Digital Signature Verification
 - **HW09**: SafeGuard VPN Protocol
+- **HW10**: TLS Configuration Analysis

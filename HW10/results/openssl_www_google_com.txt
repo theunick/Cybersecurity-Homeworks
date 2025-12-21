@@ -1,0 +1,21 @@
+TLS Analysis Report
+============================================================
+Hostname: www.google.com:443
+Date: 2025-12-21 19:04:00
+
+Protocol Version: TLS 1.3
+Cipher Suite: Unknown
+
+Cipher Components:
+  - Forward Secrecy: No
+  - Key Exchange: Unknown
+  - Encryption: Unknown
+
+Certificate:
+  - Subject: CN=www.google.com
+  - Issuer: C=US, O=Google Trust Services, CN=WR2
+  - Chain Length: 3
+
+Extensions:
+  - ALPN: h2
+  - OCSP Stapling: No

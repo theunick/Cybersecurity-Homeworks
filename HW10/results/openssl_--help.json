@@ -1,0 +1,25 @@
+{
+  "hostname": "--help",
+  "port": 443,
+  "timestamp": "2025-12-21T18:59:01.308358",
+  "results": {
+    "supported_versions": [],
+    "negotiated_version": "None",
+    "cipher_components": {
+      "forward_secrecy": false,
+      "key_exchange": "Unknown",
+      "encryption": "Unknown",
+      "authentication": "Unknown"
+    },
+    "cipher_suite": "Unknown",
+    "protocol": "Unknown",
+    "certificate": {
+      "subject": "Unknown",
+      "issuer": "Unknown",
+      "chain_length": 0
+    },
+    "alpn": null,
+    "ocsp_stapling": null,
+    "session_tickets": false
+  }
+}

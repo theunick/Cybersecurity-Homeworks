@@ -1,0 +1,21 @@
+TLS Analysis Report
+============================================================
+Hostname: --help:443
+Date: 2025-12-21 18:59:01
+
+Protocol Version: None
+Cipher Suite: Unknown
+
+Cipher Components:
+  - Forward Secrecy: No
+  - Key Exchange: Unknown
+  - Encryption: Unknown
+
+Certificate:
+  - Subject: Unknown
+  - Issuer: Unknown
+  - Chain Length: 0
+
+Extensions:
+  - ALPN: None
+  - OCSP Stapling: No

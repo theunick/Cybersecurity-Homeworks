@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: vpn_server
+    hostname: server
+    networks:
+      - vpn_network
+    environment:
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8443
+    ports:
+      - "8443:8443"
+    restart: unless-stopped
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    container_name: vpn_client
+    hostname: client
+    networks:
+      - vpn_network
+    environment:
+      - SERVER_HOST=server
+      - SERVER_PORT=8443
+      - TEST_URL=https://speed.cloudflare.com/__down?bytes=500000000
+      - STARTUP_DELAY=3
+    depends_on:
+      - server
+
+networks:
+  vpn_network:
+    driver: bridge
+    name: safeguard_network

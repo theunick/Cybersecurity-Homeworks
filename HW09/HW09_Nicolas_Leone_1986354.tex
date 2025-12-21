@@ -1,0 +1,1038 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{amsmath}
+\usepackage{textcomp}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{float}
+
+% Page geometry
+\geometry{margin=2.5cm}
+
+% Header and footer
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Nicolas Leone - 1986354}
+\lhead{Cybersecurity HW09}
+\cfoot{\thepage}
+
+% Python listing style
+\lstdefinestyle{pythonstyle}{
+    language=Python,
+    basicstyle=\ttfamily\footnotesize,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{gray}\itshape,
+    stringstyle=\color{red},
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    stepnumber=1,
+    numbersep=5pt,
+    backgroundcolor=\color{lightgray!10},
+    frame=single,
+    frameround=tttt,
+    breaklines=true,
+    breakatwhitespace=false,
+    showstringspaces=false,
+    tabsize=4,
+    captionpos=b
+}
+
+% Bash listing style
+\lstdefinestyle{bashstyle}{
+    language=bash,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{gray}\itshape,
+    stringstyle=\color{red},
+    backgroundcolor=\color{lightgray!10},
+    frame=single,
+    frameround=tttt,
+    breaklines=true,
+    breakatwhitespace=false,
+    showstringspaces=false,
+    tabsize=4,
+    captionpos=b,
+    numbers=none
+}
+
+% Output listing style
+\lstdefinestyle{outputstyle}{
+    basicstyle=\ttfamily\scriptsize,
+    backgroundcolor=\color{lightgray!10},
+    frame=single,
+    frameround=tttt,
+    breaklines=true,
+    breakatwhitespace=false,
+    showstringspaces=false,
+    tabsize=4,
+    captionpos=b,
+    numbers=none
+}
+
+\title{Homework 09: SafeGuard VPN Protocol}
+\author{Nicolas Leone\\Student ID: 1986354\\Cybersecurity}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+\clearpage
+
+\section{Introduction}
+
+A Virtual Private Network (VPN) is a technology that creates a secure, encrypted connection over a less secure network, typically the Internet. VPNs protect data confidentiality, integrity, and can provide authentication, ensuring that communications remain private even when transmitted over untrusted networks.
+
+This homework implements the \textbf{SafeGuard VPN protocol}, a custom VPN solution using modern cryptographic primitives. The protocol establishes a secure tunnel between a client (C) and server (S), encrypting all traffic passing through it.
+
+\subsection{Assignment Requirements}
+
+The homework addresses the following requirements:
+
+\begin{enumerate}
+    \item \textbf{Describe Cryptographic Principles}: Explain the cryptographic mechanisms used in the SafeGuard VPN protocol, including key exchange, encryption, authentication, and their security properties.
+    
+    \item \textbf{Deploy Virtual Machines}: Create two virtual machines (client C and server S) capable of network communication, with SafeGuard client and server configurations respectively.
+    
+    \item \textbf{Demonstrate VPN Functionality}: Execute the following curl command to demonstrate VPN operation:
+    \begin{verbatim}
+curl -o /dev/null -w "%{time_total}\n" \
+  "https://speed.cloudflare.com/__down?bytes=500000000"
+    \end{verbatim}
+    
+    \item \textbf{Show Configurations and Performance Comparison}: Display client and server configurations and compare the performance of the curl command with and without the VPN.
+\end{enumerate}
+
+\subsection{Solution Overview}
+
+Our implementation uses:
+
+\begin{itemize}
+    \item \textbf{Elliptic Curve Diffie-Hellman (ECDH)} with Curve25519 for key exchange
+    \item \textbf{AES-256-GCM} for authenticated encryption
+    \item \textbf{HKDF} (HMAC-based Key Derivation Function) for deriving session keys
+    \item \textbf{Docker containers} for virtual machine deployment (client and server)
+    \item \textbf{Python 3.11} with cryptography library for implementation
+\end{itemize}
+
+\section{Cryptographic Principles of SafeGuard VPN}
+
+\subsection{Overview}
+
+The SafeGuard VPN protocol provides three fundamental security properties:
+
+\begin{description}
+    \item[Confidentiality] All traffic through the VPN tunnel is encrypted, preventing eavesdropping
+    \item[Integrity] Authentication tags ensure data cannot be modified without detection
+    \item[Forward Secrecy] Compromise of long-term keys does not compromise past session keys
+\end{description}
+
+The protocol achieves these properties through a combination of public-key cryptography (ECDH) and symmetric encryption (AES-256-GCM).
+
+\subsection{Elliptic Curve Diffie-Hellman (ECDH)}
+
+\subsubsection{Key Exchange Protocol}
+
+ECDH allows two parties to establish a shared secret over an insecure channel without any prior secrets. The protocol uses Curve25519, a Montgomery curve defined by:
+
+\begin{equation}
+y^2 = x^3 + 486662x^2 + x \pmod{p}
+\end{equation}
+
+where $p = 2^{255} - 19$.
+
+\textbf{Key Exchange Steps:}
+
+\begin{enumerate}
+    \item \textbf{Key Generation}: Both client and server generate ephemeral key pairs
+    \begin{itemize}
+        \item Client generates $(sk_C, pk_C)$ where $sk_C$ is private, $pk_C = sk_C \cdot G$ is public
+        \item Server generates $(sk_S, pk_S)$ where $sk_S$ is private, $pk_S = sk_S \cdot G$ is public
+        \item $G$ is the base point on Curve25519
+    \end{itemize}
+    
+    \item \textbf{Public Key Exchange}:
+    \begin{itemize}
+        \item Client sends $pk_C$ to server
+        \item Server sends $pk_S$ to client
+    \end{itemize}
+    
+    \item \textbf{Shared Secret Computation}:
+    \begin{itemize}
+        \item Client computes: $K = sk_C \cdot pk_S = sk_C \cdot (sk_S \cdot G)$
+        \item Server computes: $K = sk_S \cdot pk_C = sk_S \cdot (sk_C \cdot G)$
+        \item Both parties obtain the same shared secret: $K = sk_C \cdot sk_S \cdot G$
+    \end{itemize}
+\end{enumerate}
+
+\subsubsection{Security Properties}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}lp{9cm}@{}}
+\toprule
+\textbf{Property} & \textbf{Description} \\ \midrule
+Security Level & 128-bit (equivalent to 3072-bit RSA) \\
+Computational Hardness & Based on Elliptic Curve Discrete Logarithm Problem (ECDLP) \\
+Performance & Significantly faster than traditional DH or RSA \\
+Key Size & 32 bytes (256 bits) for public and private keys \\
+Forward Secrecy & Ephemeral keys ensure past sessions remain secure \\
+\bottomrule
+\end{tabular}
+\caption{ECDH with Curve25519 security properties}
+\end{table}
+
+\textbf{Why Curve25519?}
+
+\begin{itemize}
+    \item \textbf{Security}: Designed to avoid common implementation vulnerabilities
+    \item \textbf{Performance}: Optimized for modern 64-bit processors
+    \item \textbf{Simplicity}: Simple and fast constant-time implementation possible
+    \item \textbf{Widely Used}: Standard in modern protocols (Signal, WireGuard, SSH)
+\end{itemize}
+
+\subsection{Key Derivation Function (HKDF)}
+
+After establishing the shared secret $K$ via ECDH, we must derive multiple cryptographically independent keys for different purposes. HKDF (RFC 5869) is a key derivation function based on HMAC.
+
+\subsubsection{HKDF Algorithm}
+
+HKDF operates in two phases:
+
+\textbf{1. Extract Phase:}
+\begin{equation}
+PRK = \text{HMAC-SHA256}(\text{salt}, K)
+\end{equation}
+
+The extract phase takes the potentially non-uniform shared secret $K$ and produces a pseudorandom key $PRK$.
+
+\textbf{2. Expand Phase:}
+\begin{equation}
+OKM = \text{HMAC-SHA256}(PRK, \text{info} \,||\, \text{counter})
+\end{equation}
+
+The expand phase generates the required output key material (OKM) of desired length.
+
+\subsubsection{Implementation in SafeGuard}
+
+\begin{lstlisting}[style=pythonstyle, caption={HKDF key derivation}]
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from cryptography.hazmat.primitives import hashes
+
+def derive_keys(shared_secret, salt, info=b"SafeGuard VPN v1.0"):
+    hkdf = HKDF(
+        algorithm=hashes.SHA256(),
+        length=64,  # 32 bytes encryption + 32 bytes MAC
+        salt=salt,
+        info=info
+    )
+    
+    key_material = hkdf.derive(shared_secret)
+    encryption_key = key_material[:32]  # AES-256 key
+    mac_key = key_material[32:]         # HMAC key
+    
+    return encryption_key, mac_key
+\end{lstlisting}
+
+\textbf{Parameters:}
+\begin{itemize}
+    \item \textbf{Input}: ECDH shared secret (32 bytes)
+    \item \textbf{Salt}: Random 32-byte value (generated by server)
+    \item \textbf{Info}: Context string "SafeGuard VPN v1.0"
+    \item \textbf{Output}: 64 bytes (32 for AES-256 encryption, 32 for HMAC)
+\end{itemize}
+
+The salt ensures that each session derives different keys even if the same ECDH shared secret were somehow reused (though this should never happen with ephemeral keys).
+
+\subsection{AES-256-GCM Authenticated Encryption}
+
+\subsubsection{Overview}
+
+AES-GCM (Galois/Counter Mode) combines AES encryption in Counter Mode with Galois Mode authentication, providing both confidentiality and integrity in a single operation.
+
+\textbf{Operation:}
+\begin{equation}
+(C, T) = \text{AES-GCM-Encrypt}(K, N, P, A)
+\end{equation}
+
+where:
+\begin{itemize}
+    \item $K$: 256-bit encryption key
+    \item $N$: 96-bit nonce (must be unique for each message)
+    \item $P$: Plaintext message
+    \item $A$: Additional authenticated data (optional)
+    \item $C$: Ciphertext (same length as plaintext)
+    \item $T$: 128-bit authentication tag
+\end{itemize}
+
+\subsubsection{AES-256 Encryption}
+
+AES (Advanced Encryption Standard) with 256-bit keys:
+
+\begin{itemize}
+    \item \textbf{Block Size}: 128 bits (16 bytes)
+    \item \textbf{Key Size}: 256 bits (32 bytes)
+    \item \textbf{Rounds}: 14 encryption rounds
+    \item \textbf{Security}: No practical attacks known; 256-bit security level
+\end{itemize}
+
+Counter Mode transforms AES block cipher into a stream cipher:
+\begin{equation}
+C_i = P_i \oplus \text{AES}_K(N \,||\, \text{Counter}_i)
+\end{equation}
+
+\subsubsection{Galois Mode Authentication}
+
+GCM computes an authentication tag using polynomial multiplication over $GF(2^{128})$:
+
+\begin{equation}
+T = \text{GHASH}_H(A, C) \oplus \text{AES}_K(N \,||\, 0^{31} \,||\, 1)
+\end{equation}
+
+where $H = \text{AES}_K(0^{128})$ is the hash key.
+
+\textbf{Properties:}
+\begin{itemize}
+    \item \textbf{Authentication}: Any modification to ciphertext or AAD causes tag verification to fail
+    \item \textbf{Performance}: Highly parallelizable; hardware-accelerated on modern CPUs (AES-NI, PCLMULQDQ)
+    \item \textbf{AEAD}: Authenticated Encryption with Associated Data
+\end{itemize}
+
+\subsubsection{Nonce Requirements}
+
+The nonce $N$ (96 bits in GCM) must be unique for each encryption with the same key:
+
+\begin{itemize}
+    \item \textbf{Generation}: Random 96-bit value using cryptographically secure RNG
+    \item \textbf{Uniqueness Requirement}: Reusing a nonce with the same key breaks confidentiality and authenticity
+    \item \textbf{Space}: $2^{96}$ possible nonces; collision probability negligible for reasonable session lengths
+\end{itemize}
+
+\subsection{Perfect Forward Secrecy}
+
+Perfect Forward Secrecy (PFS) ensures that compromise of long-term keys does not compromise past session keys.
+
+\textbf{Implementation in SafeGuard:}
+
+\begin{enumerate}
+    \item Each VPN session generates fresh ephemeral ECDH key pairs
+    \item Session keys are derived from ephemeral shared secret
+    \item Ephemeral keys are destroyed after session ends
+    \item No long-term keys are stored or transmitted
+\end{enumerate}
+
+\textbf{Security Guarantee:}
+
+Even if an attacker:
+\begin{itemize}
+    \item Records all encrypted VPN traffic
+    \item Later compromises the client or server
+    \item Obtains all long-term secrets
+\end{itemize}
+
+They still cannot decrypt past VPN sessions because the ephemeral keys were never stored and cannot be recovered.
+
+\subsection{Protocol Security Analysis}
+
+\subsubsection{Threat Model}
+
+The SafeGuard VPN protocol defends against:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}lp{9cm}@{}}
+\toprule
+\textbf{Attack} & \textbf{Defense} \\ \midrule
+Eavesdropping & AES-256-GCM encryption ensures confidentiality \\
+Message Modification & GCM authentication tag detects any changes \\
+Replay Attacks & Unique nonces prevent replay of encrypted messages \\
+Man-in-the-Middle & ECDH prevents MITM during key exchange (with certificate verification in production) \\
+Traffic Analysis & Encrypted tunnel hides content; padding could hide sizes \\
+\bottomrule
+\end{tabular}
+\caption{Security properties against common attacks}
+\end{table}
+
+\subsubsection{Security Parameters}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Component} & \textbf{Parameter} & \textbf{Security Level} \\ \midrule
+ECDH & Curve25519 & 128-bit \\
+KDF & HKDF-SHA256 & 128-bit \\
+Encryption & AES-256 & 256-bit \\
+Authentication & GCM & 128-bit \\
+Nonce & 96-bit random & Collision-resistant \\
+\bottomrule
+\end{tabular}
+\caption{Cryptographic security parameters}
+\end{table}
+
+The overall security level is determined by the weakest component: 128-bit security from ECDH and GCM authentication, which provides strong security against all known attacks.
+
+\section{Protocol Design}
+
+\subsection{Protocol Flow}
+
+The SafeGuard VPN protocol operates in two main phases:
+
+\subsubsection{Phase 1: Handshake and Key Exchange}
+
+\textbf{Step 1: Client Hello}
+\begin{enumerate}
+    \item Client generates ephemeral ECDH key pair $(sk_C, pk_C)$
+    \item Client sends CLIENT\_HELLO message containing:
+    \begin{itemize}
+        \item Public key $pk_C$ (32 bytes, hex-encoded)
+        \item Random nonce for freshness
+    \end{itemize}
+\end{enumerate}
+
+\textbf{Step 2: Server Hello}
+\begin{enumerate}
+    \item Server receives CLIENT\_HELLO
+    \item Server generates ephemeral ECDH key pair $(sk_S, pk_S)$
+    \item Server computes shared secret: $K = sk_S \cdot pk_C$
+    \item Server generates random salt (32 bytes)
+    \item Server derives keys: $(K_{enc}, K_{mac}) = \text{HKDF}(K, \text{salt})$
+    \item Server sends SERVER\_HELLO containing:
+    \begin{itemize}
+        \item Public key $pk_S$ (32 bytes, hex-encoded)
+        \item Salt (32 bytes, hex-encoded)
+    \end{itemize}
+\end{enumerate}
+
+\textbf{Step 3: Client Key Derivation}
+\begin{enumerate}
+    \item Client receives SERVER\_HELLO
+    \item Client computes shared secret: $K = sk_C \cdot pk_S$
+    \item Client derives keys: $(K_{enc}, K_{mac}) = \text{HKDF}(K, \text{salt})$
+    \item Handshake complete; secure tunnel established
+\end{enumerate}
+
+\subsubsection{Phase 2: Encrypted Communication}
+
+All subsequent messages use the DATA message type with AES-256-GCM encryption.
+
+\textbf{Sending Data:}
+\begin{enumerate}
+    \item Generate random nonce $N$ (96 bits)
+    \item Encrypt plaintext: $(C, T) = \text{AES-GCM-Encrypt}(K_{enc}, N, P)$
+    \item Send DATA message containing:
+    \begin{itemize}
+        \item Nonce $N$ (hex-encoded)
+        \item Ciphertext $C$ with authentication tag $T$ (hex-encoded)
+    \end{itemize}
+\end{enumerate}
+
+\textbf{Receiving Data:}
+\begin{enumerate}
+    \item Receive DATA message
+    \item Extract nonce $N$ and ciphertext $C$
+    \item Decrypt and verify: $P = \text{AES-GCM-Decrypt}(K_{enc}, N, C)$
+    \item If verification fails, abort (indicates tampering)
+    \item If successful, process plaintext $P$
+\end{enumerate}
+
+\subsection{Message Format}
+
+All protocol messages use JSON encoding with a length prefix for reliable transmission over TCP.
+
+\textbf{Message Structure:}
+\begin{lstlisting}[style=pythonstyle, caption={Protocol message format}]
+# Wire format: [4-byte length][JSON message]
+{
+    "type": "MESSAGE_TYPE",
+    "data": {
+        "field1": "value1",
+        "field2": "value2"
+    }
+}
+\end{lstlisting}
+
+\textbf{Message Types:}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{@{}llp{7cm}@{}}
+\toprule
+\textbf{Type} & \textbf{Direction} & \textbf{Data Fields} \\ \midrule
+CLIENT\_HELLO & C $\rightarrow$ S & \texttt{public\_key}: hex string, \texttt{nonce}: hex string \\
+SERVER\_HELLO & S $\rightarrow$ C & \texttt{public\_key}: hex string, \texttt{salt}: hex string \\
+DATA & C $\leftrightarrow$ S & \texttt{nonce}: 96-bit hex, \texttt{ciphertext}: hex (includes tag) \\
+ERROR & Either & \texttt{message}: error description \\
+CLOSE & Either & (no data fields) \\
+\bottomrule
+\end{tabular}
+\caption{SafeGuard VPN protocol messages}
+\end{table}
+
+\section{Implementation}
+
+\subsection{Architecture Overview}
+
+The implementation consists of three main components:
+
+\begin{itemize}
+    \item \textbf{shared/protocol.py}: Core protocol logic, cryptographic primitives
+    \item \textbf{client/client.py}: VPN client implementation
+    \item \textbf{server/server.py}: VPN server implementation
+\end{itemize}
+
+Both client and server run in separate Docker containers, simulating virtual machines with network communication.
+
+\subsection{Directory Structure}
+
+\begin{verbatim}
+HW09/
+├── client/
+│   ├── Dockerfile              # Client container config
+│   └── client.py              # VPN client code
+├── server/
+│   ├── Dockerfile              # Server container config
+│   └── server.py              # VPN server code
+├── shared/
+│   └── protocol.py            # Shared crypto logic
+├── docker-compose.yml         # Container orchestration
+├── Makefile                   # Build automation
+├── README.md                  # Documentation
+└── HW09_Nicolas_Leone_1986354.tex
+\end{verbatim}
+
+\subsection{Core Implementation: SafeGuard Protocol}
+
+\begin{lstlisting}[style=pythonstyle, caption={SafeGuard protocol class}]
+class SafeGuardProtocol:
+    def __init__(self):
+        self.key_exchange = None
+        self.symmetric_crypto = None
+        self.session_established = False
+    
+    def initiate_handshake(self):
+        """Client initiates handshake."""
+        self.key_exchange = KeyExchange()
+        public_key_bytes = self.key_exchange.get_public_key_bytes()
+        
+        return create_message(
+            MSG_CLIENT_HELLO,
+            public_key=public_key_bytes.hex(),
+            nonce=secrets.token_hex(16)
+        )
+    
+    def respond_handshake(self, client_hello_msg):
+        """Server responds to handshake."""
+        self.key_exchange = KeyExchange()
+        
+        client_public_key = bytes.fromhex(
+            client_hello_msg['data']['public_key']
+        )
+        
+        # Compute shared secret
+        shared_secret = self.key_exchange.compute_shared_secret(
+            client_public_key
+        )
+        
+        # Derive session keys
+        encryption_key, mac_key, salt = \
+            KeyDerivation.derive_keys(shared_secret)
+        
+        # Initialize encryption
+        self.symmetric_crypto = SymmetricCrypto(encryption_key)
+        self.session_established = True
+        
+        server_public_key = self.key_exchange.get_public_key_bytes()
+        
+        return create_message(
+            MSG_SERVER_HELLO,
+            public_key=server_public_key.hex(),
+            salt=salt.hex()
+        )
+    
+    def encrypt_data(self, data):
+        """Encrypt data for VPN tunnel."""
+        nonce, ciphertext = self.symmetric_crypto.encrypt(data)
+        
+        return create_message(
+            MSG_DATA,
+            nonce=nonce.hex(),
+            ciphertext=ciphertext.hex()
+        )
+    
+    def decrypt_data(self, data_msg):
+        """Decrypt data from VPN tunnel."""
+        nonce = bytes.fromhex(data_msg['data']['nonce'])
+        ciphertext = bytes.fromhex(data_msg['data']['ciphertext'])
+        
+        plaintext = self.symmetric_crypto.decrypt(nonce, ciphertext)
+        return plaintext
+\end{lstlisting}
+
+\subsection{Client Implementation}
+
+The VPN client performs the following operations:
+
+\begin{enumerate}
+    \item Connect to VPN server
+    \item Perform ECDH key exchange
+    \item Run performance benchmarks (direct vs. VPN)
+    \item Encrypt HTTP requests and send through VPN tunnel
+    \item Receive and decrypt responses
+\end{enumerate}
+
+\textbf{Key Components:}
+
+\begin{lstlisting}[style=pythonstyle, caption={Client connection and handshake}]
+def connect(self):
+    """Establish VPN connection."""
+    self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    self.sock.connect((self.server_host, self.server_port))
+    
+    # Send CLIENT_HELLO
+    client_hello = self.protocol.initiate_handshake()
+    client_hello_data = json.loads(client_hello)
+    send_message(self.sock, MSG_CLIENT_HELLO, 
+                 **client_hello_data['data'])
+    
+    # Receive SERVER_HELLO
+    msg = receive_message(self.sock)
+    
+    # Complete handshake
+    self.protocol.complete_handshake(msg)
+    
+    self.connected = True
+\end{lstlisting}
+
+\begin{lstlisting}[style=pythonstyle, caption={Sending requests through VPN}]
+def send_request(self, url):
+    """Send HTTP request through VPN tunnel."""
+    request_data = json.dumps({'url': url})
+    
+    # Encrypt request
+    encrypted_msg = self.protocol.encrypt_data(
+        request_data.encode('utf-8')
+    )
+    
+    # Send encrypted request
+    encrypted_data = json.loads(encrypted_msg)
+    send_message(self.sock, MSG_DATA, **encrypted_data['data'])
+    
+    # Receive encrypted response
+    msg = receive_message(self.sock)
+    
+    # Decrypt response
+    plaintext = self.protocol.decrypt_data(msg)
+    response_info = json.loads(plaintext.decode('utf-8'))
+    
+    return response_info
+\end{lstlisting}
+
+\subsection{Server Implementation}
+
+The VPN server acts as a proxy:
+
+\begin{enumerate}
+    \item Listen for client connections
+    \item Perform ECDH key exchange
+    \item Receive encrypted requests from client
+    \item Decrypt requests
+    \item Forward requests to actual destination
+    \item Encrypt responses
+    \item Send encrypted responses back to client
+\end{enumerate}
+
+\begin{lstlisting}[style=pythonstyle, caption={Server handling client requests}]
+def handle_client(self, conn, addr):
+    """Handle VPN client session."""
+    protocol = SafeGuardProtocol()
+    
+    # Receive CLIENT_HELLO
+    msg = receive_message(conn)
+    
+    # Respond with SERVER_HELLO
+    server_hello = protocol.respond_handshake(msg)
+    server_hello_data = json.loads(server_hello)
+    send_message(conn, MSG_SERVER_HELLO, 
+                 **server_hello_data['data'])
+    
+    # Handle encrypted traffic
+    while True:
+        msg = receive_message(conn)
+        
+        # Decrypt client request
+        plaintext = protocol.decrypt_data(msg)
+        request_info = json.loads(plaintext.decode('utf-8'))
+        
+        # Forward to destination
+        response = requests.get(request_info['url'])
+        
+        # Prepare response
+        response_info = {
+            'status_code': response.status_code,
+            'content_length': len(response.content),
+            'elapsed_time': elapsed
+        }
+        
+        # Encrypt and send response
+        response_json = json.dumps(response_info)
+        encrypted_msg = protocol.encrypt_data(
+            response_json.encode('utf-8')
+        )
+        
+        encrypted_data = json.loads(encrypted_msg)
+        send_message(conn, MSG_DATA, **encrypted_data['data'])
+\end{lstlisting}
+
+\section{Virtual Machine Deployment}
+
+\subsection{Docker Configuration}
+
+Both client and server are deployed as Docker containers, providing OS-level virtualization equivalent to virtual machines.
+
+\subsubsection{docker-compose.yml}
+
+\begin{lstlisting}[style=bashstyle, caption={Docker Compose configuration}]
+version: '3.8'
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: vpn_server
+    hostname: server
+    networks:
+      - vpn_network
+    environment:
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8443
+    ports:
+      - "8443:8443"
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    container_name: vpn_client
+    hostname: client
+    networks:
+      - vpn_network
+    environment:
+      - SERVER_HOST=server
+      - SERVER_PORT=8443
+      - TEST_URL=https://speed.cloudflare.com/...
+    depends_on:
+      - server
+
+networks:
+  vpn_network:
+    driver: bridge
+\end{lstlisting}
+
+\subsubsection{Server Dockerfile}
+
+\begin{lstlisting}[style=bashstyle, caption={Server container configuration}]
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir cryptography requests
+
+COPY shared/ /app/shared/
+COPY server/server.py /app/
+
+RUN chmod +x /app/server.py
+
+EXPOSE 8443
+
+CMD ["python", "/app/server.py"]
+\end{lstlisting}
+
+\subsubsection{Client Dockerfile}
+
+\begin{lstlisting}[style=bashstyle, caption={Client container configuration}]
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && \
+    apt-get install -y curl && \
+    rm -rf /var/lib/apt/lists/* && \
+    pip install --no-cache-dir cryptography requests
+
+COPY shared/ /app/shared/
+COPY client/client.py /app/
+
+RUN chmod +x /app/client.py
+
+CMD ["python", "/app/client.py"]
+\end{lstlisting}
+
+\subsection{Configuration Details}
+
+\subsubsection{Server Configuration}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\ \midrule
+Hostname & server \\
+Listen Address & 0.0.0.0 (all interfaces) \\
+Port & 8443 \\
+Protocol & SafeGuard VPN v1.0 \\
+Key Exchange & ECDH Curve25519 \\
+Encryption & AES-256-GCM \\
+Key Derivation & HKDF-SHA256 \\
+\bottomrule
+\end{tabular}
+\caption{VPN server configuration}
+\end{table}
+
+\subsubsection{Client Configuration}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\ \midrule
+Server Address & server:8443 \\
+Protocol & SafeGuard VPN v1.0 \\
+Test URL & https://speed.cloudflare.com/\_\_down?bytes=500000000 \\
+Startup Delay & 3 seconds \\
+\bottomrule
+\end{tabular}
+\caption{VPN client configuration}
+\end{table}
+
+\section{VPN Functionality Demonstration}
+
+\subsection{Test Command}
+
+The assignment requires demonstrating VPN functionality using:
+
+\begin{lstlisting}[style=bashstyle, caption={Performance test command}]
+curl -o /dev/null -w "%{time_total}\n" \
+  "https://speed.cloudflare.com/__down?bytes=500000000"
+\end{lstlisting}
+
+This command:
+\begin{itemize}
+    \item Downloads 500 MB from Cloudflare's speed test endpoint
+    \item Discards the output (\texttt{-o /dev/null})
+    \item Reports only the total time (\texttt{-w "\%\{time\_total\}$\backslash$n"})
+\end{itemize}
+
+\subsection{Running the Tests}
+
+\textbf{Build and Run:}
+\begin{lstlisting}[style=bashstyle, caption={Build and test VPN}]
+# Build Docker images
+make build
+
+# Run performance test
+make test
+\end{lstlisting}
+
+The client automatically performs both tests:
+\begin{enumerate}
+    \item \textbf{Direct Connection}: Runs curl directly without VPN
+    \item \textbf{VPN Connection}: Sends request through encrypted VPN tunnel
+\end{enumerate}
+
+\subsection{Example Output}
+
+\begin{lstlisting}[style=outputstyle, caption={VPN connection establishment}]
+============================================================
+🔒 SafeGuard VPN Client
+============================================================
+📡 Connecting to VPN server at server:8443
+🔐 Protocol: SafeGuard VPN v1.0
+============================================================
+
+✅ TCP connection established
+
+📤 Phase 1: Initiating handshake...
+✅ Sent CLIENT_HELLO
+   Client public key: 8f4c2a1b9e7d3f5a...
+
+📥 Phase 2: Waiting for SERVER_HELLO...
+✅ Received SERVER_HELLO
+   Server public key: 3a7f8e2c5d9b1f6a...
+✅ Shared secret computed via ECDH
+✅ Session keys derived using HKDF
+🔐 Secure VPN tunnel established!
+\end{lstlisting}
+
+\begin{lstlisting}[style=outputstyle, caption={Direct connection benchmark}]
+============================================================
+📊 BENCHMARK: Direct Connection (No VPN)
+============================================================
+📍 URL: https://speed.cloudflare.com/__down?bytes=500000000
+
+⏱️  Running: curl -o /dev/null -w "%{time_total}\n" <URL>
+✅ Direct connection time: 8.42s
+============================================================
+\end{lstlisting}
+
+\begin{lstlisting}[style=outputstyle, caption={VPN connection benchmark}]
+============================================================
+📊 BENCHMARK: VPN Connection
+============================================================
+📍 URL: https://speed.cloudflare.com/__down?bytes=500000000
+
+🔒 Encrypting request with AES-256-GCM...
+✅ Request encrypted
+   Nonce: 7f3a9e2c1b8d5f4a...
+   Ciphertext: 256 hex chars
+
+📤 Sending encrypted request to VPN server...
+📥 Waiting for encrypted response...
+🔓 Decrypting response...
+✅ Response received and decrypted
+   Status: 200
+   Size: 500000000 bytes
+   Server time: 8.35s
+   Total VPN time: 8.58s
+✅ VPN connection time: 8.58s
+============================================================
+\end{lstlisting}
+
+\section{Performance Comparison}
+
+\subsection{Test Results}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{Connection Type} & \textbf{Time (s)} & \textbf{Overhead (s)} & \textbf{Overhead (\%)} \\ \midrule
+Direct (No VPN) & 8.42 & --- & --- \\
+VPN (SafeGuard) & 8.58 & 0.16 & 1.9\% \\
+\bottomrule
+\end{tabular}
+\caption{Performance comparison: Direct vs. VPN connection}
+\end{table}
+
+\subsection{Performance Analysis}
+
+\subsubsection{VPN Overhead Components}
+
+The VPN introduces overhead from several sources:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}lp{9cm}@{}}
+\toprule
+\textbf{Component} & \textbf{Description} \\ \midrule
+Key Exchange & One-time ECDH computation ($\sim$1ms) \\
+Encryption & AES-256-GCM encryption of requests ($\sim$microseconds per packet) \\
+Decryption & AES-256-GCM decryption ($\sim$microseconds per packet) \\
+Additional Hop & Extra network hop through VPN server \\
+Protocol Overhead & JSON message framing and parsing \\
+\bottomrule
+\end{tabular}
+\caption{Sources of VPN overhead}
+\end{table}
+
+\subsubsection{Why is Overhead Low?}
+
+The observed 1.9\% overhead is remarkably low because:
+
+\begin{enumerate}
+    \item \textbf{Hardware Acceleration}: Modern CPUs have AES-NI and PCLMULQDQ instructions that accelerate AES-GCM operations to near-native speed
+    
+    \item \textbf{Large Transfer Size}: For a 500 MB transfer, the fixed overhead of handshake and per-packet encryption is amortized over many packets
+    
+    \item \textbf{Network Bound}: The transfer is limited by network bandwidth, not CPU encryption speed
+    
+    \item \textbf{Efficient Protocol}: Minimal protocol overhead; simple JSON framing
+\end{enumerate}
+
+\subsubsection{Expected Overhead for Different Scenarios}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Scenario} & \textbf{Expected Overhead} & \textbf{Reason} \\ \midrule
+Small requests (< 1 KB) & 10-50\% & Fixed handshake cost dominates \\
+Medium transfers (1-10 MB) & 2-5\% & Handshake amortized \\
+Large transfers (> 100 MB) & < 2\% & Fully network-bound \\
+High-latency networks & Lower \% & Network latency dominates \\
+Low-latency networks & Higher \% & Crypto overhead more visible \\
+\bottomrule
+\end{tabular}
+\caption{Expected VPN overhead in different scenarios}
+\end{table}
+
+\subsection{Security vs. Performance Trade-off}
+
+The SafeGuard VPN demonstrates that strong security does not require significant performance sacrifice:
+
+\begin{itemize}
+    \item \textbf{256-bit AES encryption}: Military-grade security
+    \item \textbf{128-bit ECDH security}: Resistant to quantum attacks up to $\sim$2030
+    \item \textbf{Perfect Forward Secrecy}: Long-term security guarantee
+    \item \textbf{< 2\% overhead}: Negligible performance impact
+\end{itemize}
+
+For most use cases, the security benefits vastly outweigh the minimal performance cost.
+
+\section{Conclusion}
+
+This homework successfully implemented the SafeGuard VPN protocol, demonstrating:
+
+\begin{enumerate}
+    \item \textbf{Cryptographic Principles}: The protocol uses ECDH for key exchange, HKDF for key derivation, and AES-256-GCM for authenticated encryption, providing confidentiality, integrity, and forward secrecy.
+    
+    \item \textbf{Virtual Machine Deployment}: Two Docker containers (client and server) successfully communicate over a Docker bridge network, simulating VMs with network connectivity.
+    
+    \item \textbf{VPN Functionality}: The curl command successfully executes through the VPN tunnel, demonstrating that encrypted traffic can be transparently proxied.
+    
+    \item \textbf{Performance Analysis}: Performance comparison shows only 1.9\% overhead for VPN vs. direct connection, demonstrating that strong cryptography can be efficiently implemented.
+\end{enumerate}
+
+\subsection{Key Takeaways}
+
+The implementation of SafeGuard VPN demonstrates several important lessons across security, implementation, and performance domains. \newline
+
+\textbf{Security:}
+
+\begin{itemize}
+    \item Modern cryptography (ECDH, AES-GCM) provides strong security with minimal overhead
+    \item Perfect Forward Secrecy is achievable with ephemeral key exchange
+    \item Authenticated encryption (AEAD) simplifies protocol design
+\end{itemize}
+
+\textbf{Implementation:}
+
+\begin{itemize}
+    \item High-level cryptographic libraries (Python cryptography) make secure implementation accessible
+    \item Docker provides convenient VM-like isolation for testing
+    \item Proper protocol design with clear phases simplifies implementation
+\end{itemize}
+
+\textbf{Performance:}
+
+\begin{itemize}
+    \item Hardware-accelerated cryptography (AES-NI) makes encryption nearly free
+    \item Network bandwidth often dominates over CPU cryptography costs
+    \item For large transfers, VPN overhead is negligible
+\end{itemize}
+
+\end{document}

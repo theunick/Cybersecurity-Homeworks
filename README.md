@@ -24,4 +24,5 @@ Each homework is organized in its own directory, containing:
 - **HW05**: Secure Pseudo-Random Number Generators
 - **HW06**: Secure Rock-Paper-Scissors Protocol
 - **HW07**: Secure Dice Game Protocol
-- **HW08**: 
+- **HW08**: Digital Signature Verification
+- **HW09**: SafeGuard VPN Protocol
